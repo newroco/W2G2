@@ -5,10 +5,12 @@ namespace OCA\w2g2\Migration;
 class UpdateDatabase
 {
     protected $tableName;
+    protected $TMPtableName;
 
     public function __construct()
     {
         $this->tableName = "oc_locks_w2g2";
+        $this->TMPtableName = "oc_locks_w2g2_tmp";
     }
 
     public function run()
@@ -76,20 +78,27 @@ class UpdateDatabase
                     }
                 }
             }
-
-            $deleteQuery = "DELETE FROM " . $this->tableName;
-            \OCP\DB::prepare($deleteQuery)->execute();
         }
-
-        $renameQuery = "ALTER TABLE " . $this->tableName . " RENAME COLUMN name TO file_id";
-        $typeQuery = "ALTER TABLE " . $this->tableName . " ALTER COLUMN file_id TYPE INT USING file_id::integer";
-
-        \OCP\DB::prepare($renameQuery)->execute();
-        \OCP\DB::prepare($typeQuery)->execute();
+        
+        $createTMPQuery = "
+            CREATE TABLE IF NOT EXISTS " . $this->TMPtableName . " (
+                `file_id` INT(11) NOT NULL,
+                `created` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `locked_by` VARCHAR(255) NULL DEFAULT NULL COLLATE 'utf8_bin',
+                PRIMARY KEY (`file_id`)
+            )
+             COLLATE 'utf8_bin' ENGINE=InnoDB;
+        ";
+        
+        \OCP\DB::prepare($createTMPQuery)->execute();
+        
+        // Just in case an upgrade failed previously.
+        $truncateQuery = "TRUNCATE " . $this->TMPtableName;
+        \OCP\DB::prepare($truncateQuery)->execute();
 
         // Add the data back in the table
         if (count($files) > 0) {
-            $insertQuery = "INSERT INTO " . $this->tableName . " (file_id, locked_by) VALUES ";
+            $insertQuery = "INSERT INTO " . $this->TMPtableName . " (file_id, locked_by) VALUES ";
 
             $len = count($files);
             for ($i = 0; $i < $len; $i++) {
@@ -103,5 +112,12 @@ class UpdateDatabase
 
             \OCP\DB::prepare($insertQuery)->execute();
         }
+        
+
+        $dropQuery = "DROP TABLE " . $this->tableName;
+        $renameQuery = "RENAME TABLE " . $this->TMPtableName . " TO " . $this->tableName . "";
+
+        \OCP\DB::prepare($dropQuery)->execute();
+        \OCP\DB::prepare($renameQuery)->execute();
     }
 }
