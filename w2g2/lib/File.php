@@ -15,8 +15,8 @@ class File {
 
         $this->lock = empty($fileLocks) ? null : $fileLocks[0];
 
-        $groupFolderFile = (Database::getGroupFolderFile())[0];
-        $this->groupFolderFileId = $groupFolderFile['fileid'];
+        $groupFolderFile = empty(Database::getGroupFolderFile()) ? null : Database::getGroupFolderFile()[0];
+        $this->groupFolderFileId = ($groupFolderFile === null) ? null : $groupFolderFile['fileid'];
     }
 
     public function isLocked()
